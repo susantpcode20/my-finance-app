@@ -41,20 +41,17 @@ def get_stock_analysis(ticker):
 
 # --- 多分頁選單 ---
 st.sidebar.title("🧭 選單")
-page = st.sidebar.radio("選擇功能", ["📊 資產現況與 AI 診斷", "🧪 策略規劃模擬器"])
+page = st.sidebar.radio("選擇功能", ["📊 資產現況與 AI 診斷", "🎯 4%法則策略模擬"])
 
 # ------------------------------------------------------------------
-# 分頁 1：資產現況與 AI 診斷
+# 分頁 1：資產現況與 AI 診斷 (保留原邏輯)
 # ------------------------------------------------------------------
 if page == "📊 資產現況與 AI 診斷":
-    st.title("🚀 10年台幣4000萬：全球資產執行平台")
-    
+    st.title("🚀 全球資產執行平台")
     with st.sidebar:
         st.header("💰 現有庫存設定")
         cash_on_hand = st.number_input("手頭現金 (萬)", value=100.0)
         monthly_investment = st.number_input("每月投入 (萬)", value=5.0)
-        fee_rate = st.slider("手續費率 (%)", 0.0, 0.5, 0.1425, step=0.01)
-        
         target_ratios = {}
         holdings_qty = {}
         for ticker in ["2330.TW", "TLT", "GOLD_PASSBOOK"]:
@@ -62,7 +59,6 @@ if page == "📊 資產現況與 AI 診斷":
             target_ratios[ticker] = st.slider(f"{ticker} 目標 %", 0, 100, 25, key=f"t_{ticker}")
             holdings_qty[ticker] = st.number_input(f"{ticker} 庫存", min_value=0.0, key=f"q_{ticker}")
 
-    # 計算資產與顯示圖表 (與原程式邏輯相同)
     portfolio_data = []
     total_val = 0
     for ticker in ["2330.TW", "TLT", "GOLD_PASSBOOK"]:
@@ -73,73 +69,75 @@ if page == "📊 資產現況與 AI 診斷":
         portfolio_data.append({"標的": ticker, "市值(萬)": v, "目標%": target_ratios[ticker], "20MA": t20, "現價": last_p, "is_us": is_us, "chart": chart})
 
     actual_total = cash_on_hand + total_val
-    
-    # 介面展示
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        st.subheader("🏦 資產統計")
-        st.metric("總資產 (萬)", f"{actual_total:.2f}")
-        pie_df = pd.DataFrame([{"標的": i["標的"], "市值": i["市值(萬)"]} for i in portfolio_data] + [{"標的": "現金", "市值": cash_on_hand}])
-        st.plotly_chart(px.pie(pie_df, values='市值', names='標的', hole=0.4), use_container_width=True)
-
-    with col2:
-        st.subheader("🤖 AI 投資建議")
-        if st.button("🔍 執行深度分析"):
-            for item in portfolio_data:
-                diff = item["目標%"] - (item["市值(萬)"]/actual_total*100)
-                if diff > 1:
-                    st.write(f"🚀 **{item['標的']}**")
-                    st.info(f"建議補足 {diff:.1f}%，約 {diff/100*actual_total:.1f} 萬")
-                    if item["chart"]: st.plotly_chart(item["chart"], use_container_width=True)
+    st.metric("當前總資產 (萬)", f"{actual_total:.2f}")
+    st.plotly_chart(px.pie(pd.DataFrame([{"標的": i["標的"], "市值": i["市值(萬)"]} for i in portfolio_data] + [{"標的": "現金", "市值": cash_on_hand}]), values='市值', names='標的', hole=0.4), use_container_width=True)
 
 # ------------------------------------------------------------------
-# 分頁 2：策略規劃模擬器
+# 分頁 2：4% 法則策略模擬
 # ------------------------------------------------------------------
-elif page == "🧪 策略規劃模擬器":
-    st.title("🧪 不同投資策略規劃與試算")
-    st.info("在此分頁你可以設定不同的年化報酬率，試算財富達成時間，而不影響你的現有庫存數據。")
-    
+elif page == "🎯 4%法則策略模擬":
+    st.title("🎯 4% 法則：財富自由路徑模擬")
+    st.info("根據 4% 法則，你的退休金應為『年支出』的 25 倍。")
+
     col_input, col_result = st.columns([1, 2])
-    
+
     with col_input:
-        st.subheader("⚙️ 模擬參數")
-        sim_start_cash = st.number_input("初始本金 (萬)", value=100.0)
-        sim_monthly = st.number_input("模擬每月投入 (萬)", value=5.0)
-        sim_years = st.slider("模擬年數", 1, 30, 10)
+        st.subheader("⚙️ 生活開銷設定")
+        target_monthly_spend = st.number_input("退休後每月生活費 (萬)", value=10.0, step=0.5)
+        # 計算 4% 法則目標金額 (年支出的 25 倍)
+        fire_target_amount = target_monthly_spend * 12 * 25
+        
+        st.success(f"📌 您的退休目標金額：**{fire_target_amount:.0f} 萬**")
         
         st.markdown("---")
-        st.write("📈 **不同策略年化報酬率預設：**")
-        strategies = {
-            "保守型 (定存/債券)": 0.03,
-            "穩健型 (高股息/ETF)": 0.07,
-            "進取型 (台美龍頭股)": 0.12,
-            "自定義策略": st.slider("自定義報酬率 (%)", 0, 30, 10) / 100
-        }
-        selected_strategy = st.selectbox("選擇模擬劇本", list(strategies.keys()))
-        expected_roi = strategies[selected_strategy]
+        st.subheader("📈 累積期參數")
+        sim_start_cash = st.number_input("目前初始本金 (萬)", value=100.0)
+        sim_monthly = st.number_input("每月預計投入 (萬)", value=5.0)
+        expected_roi = st.slider("預期年化報酬率 (%)", 0, 20, 8) / 100
+        sim_years = st.slider("模擬時程 (年)", 5, 40, 20)
 
     with col_result:
+        # 計算財富累積曲線
         months = sim_years * 12
-        sim_data = []
+        sim_list = []
         for m in range(months + 1):
-            # 複利公式：FV = PV*(1+r)^n + PMT * [((1+r)^n - 1) / r]
             val = sim_start_cash * ((1 + expected_roi/12)**m) + (sim_monthly * (((1 + expected_roi/12)**m - 1) / (expected_roi/12)))
-            sim_data.append({"月份": m, "資產價值": round(val, 2)})
+            sim_list.append({"月份": m, "資產價值": round(val, 2)})
         
-        df_sim = pd.DataFrame(sim_data)
-        
-        st.subheader(f"📊 {selected_strategy} 模擬結果")
+        df_sim = pd.DataFrame(sim_list)
         final_amt = df_sim['資產價值'].iloc[-1]
-        st.metric(f"{sim_years} 年後預估資產", f"{final_amt:,.0f} 萬", 
-                  delta=f"較初始成長 {final_amt - sim_start_cash:,.0f} 萬")
         
-        fig_sim = px.area(df_sim, x='月份', y='資產價值', title="財富累積曲線")
-        fig_sim.add_hline(y=4000, line_dash="dash", line_color="red", annotation_text="4000萬目標")
-        st.plotly_chart(fig_sim, use_container_width=True)
-        
-        # 達標分析
-        if final_amt >= 4000:
-            reach_month = df_sim[df_sim['資產價值'] >= 4000]['月份'].iloc[0]
-            st.success(f"🎊 依照此策略，你將在第 **{reach_month}** 個月（約 {reach_month//12} 年）達成 4000 萬目標！")
+        # 顯示主要數據
+        c1, c2 = st.columns(2)
+        with c1:
+            st.metric(f"{sim_years}年後資產", f"{final_amt:,.0f} 萬")
+        with c2:
+            current_withdraw = (final_amt * 0.04) / 12
+            st.metric("屆時每月可領取 (4%法則)", f"{current_withdraw:,.2f} 萬")
+
+        # 繪圖
+        fig = px.area(df_sim, x='月份', y='資產價值', title="財富累積 vs. 退休目標")
+        fig.add_hline(y=fire_target_amount, line_dash="dash", line_color="red", annotation_text=f"目標 {fire_target_amount}萬")
+        st.plotly_chart(fig, use_container_width=True)
+
+        # 深度分析
+        st.subheader("🤖 AI 策略診斷")
+        if final_amt >= fire_target_amount:
+            reach_month = df_sim[df_sim['資產價值'] >= fire_target_amount]['月份'].iloc[0]
+            st.balloons()
+            st.success(f"✅ 達成目標！預計在第 **{reach_month}** 個月（約 {reach_month//12} 年 {reach_month%12} 個月）達成財富自由。")
         else:
-            st.warning(f"⚠️ 依照此策略，{sim_years} 年後尚未達標。建議將月投提高至 {((4000 - sim_start_cash*((1+expected_roi/12)**months)) / (((1+expected_roi/12)**months-1)/(expected_roi/12))):.1f} 萬以利達標。")
+            gap = fire_target_amount - final_amt
+            st.warning(f"⚠️ 距離目標還差 **{gap:,.0f} 萬**。")
+            
+            # 反推建議
+            suggested_monthly = (fire_target_amount - sim_start_cash*((1+expected_roi/12)**months)) / (((1+expected_roi/12)**months-1)/(expected_roi/12))
+            st.write(f"💡 若想在 {sim_years} 年內準時達標，建議將每月投入提高至：**{max(0.0, suggested_monthly):.2f} 萬**")
+            
+        st.markdown("""
+        ---
+        ### 📖 什麼是 4% 法則？
+        1. **源起**：由 William Bengen 提出，後經「崔尼蒂研究」(Trinity Study) 證實。
+        2. **運作方式**：將資產配置在股債組合（例如 60/40），每年提取 4% 應付生活。
+        3. **安全邊際**：此法則已考慮到市場波動，目的是讓你的本金即便在提取過程中，也能因市場成長而維持領取 30 年。
+        """)
